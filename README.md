@@ -19,7 +19,7 @@ It's for my final project.
 
 脚本假设数据组织如下（`--dense_folder` 指向的目录）：
 
-```text
+
 dense_folder/
 ├── images/          # COLMAP 使用的原始图像
 ├── sparse/          # COLMAP 导出的稀疏模型（文本格式）
@@ -30,7 +30,7 @@ dense_folder/
     ├── cams/        # 每张图像对应的相机参数和深度范围
     ├── pair.txt     # 视角配对文件（MVSNet 使用）
     └── images/      # 以 %08d.jpg 命名的图像（可能覆盖/追加到原目录）
-````
+
 
 当前脚本默认从 `sparse/` 目录下读取 **文本格式** 的 COLMAP 模型 (`.txt`)。如果你现在是 `.bin` 文件，需要先用 COLMAP 导出为 `.txt`。
 
