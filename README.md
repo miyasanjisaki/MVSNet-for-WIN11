@@ -13,6 +13,8 @@ It's for my final project.
 - 通过几何一致性打分，自动进行 **视角选择 (view selection)**，生成 `pair.txt`  
 - 将原始图像重命名为 `%08d.jpg`，与 `cams/`、`pair.txt` 一起构成标准的 **MVSNet 输入格式**
 
+  如需使用，请切换至master分支
+
 ---
 
 ## 1. 目录结构约定
