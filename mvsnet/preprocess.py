@@ -541,24 +541,46 @@ def gen_pipeline_mvs_list(dense_folder):
     pos = 1
     for i in range(int(cluster_list[0])):
         paths = []
-        # ref image
-        ref_index = int(cluster_list[pos])
+        # pos 是原来固定访问的索引
+        if pos >= len(cluster_list):
+            # 如果 neighbor 不够，选择最后一个 neighbor
+            ref_index = int(cluster_list[-1])
+        else:
+            ref_index = int(cluster_list[pos])
         pos += 1
         ref_image_path = os.path.join(image_folder, ('%08d.jpg' % ref_index))
         ref_cam_path = os.path.join(cam_folder, ('%08d_cam.txt' % ref_index))
         paths.append(ref_image_path)
         paths.append(ref_cam_path)
         # view images
-        all_view_num = int(cluster_list[pos])
+        if pos >= len(cluster_list):
+            all_view_num = int(cluster_list[-1])  # 取最后一个 neighbor
+        else:
+            all_view_num = int(cluster_list[pos])
+
         pos += 1
         check_view_num = min(FLAGS.view_num - 1, all_view_num)
+
         for view in range(check_view_num):
-            view_index = int(cluster_list[pos + 2 * view])
+            # 计算安全索引，防止越界
+            safe_index = min(pos + 2 * view, len(cluster_list) - 1)
+            view_index = int(cluster_list[safe_index])
+
+            # 构建图片和 cam 文件路径
             view_image_path = os.path.join(image_folder, ('%08d.jpg' % view_index))
             view_cam_path = os.path.join(cam_folder, ('%08d_cam.txt' % view_index))
             paths.append(view_image_path)
             paths.append(view_cam_path)
+
+        # 更新 pos 时，也要防止 pos 超出 cluster_list
         pos += 2 * all_view_num
+        if pos > len(cluster_list):
+            pos = len(cluster_list)
+
         # depth path
         mvs_list.append(paths)
+        print(f"cluster_list length: {len(cluster_list)}, pos: {pos}")
+        print(cluster_list)
+
     return mvs_list
+

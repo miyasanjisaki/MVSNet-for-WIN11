@@ -219,6 +219,10 @@ def inference_mem(images, cams, depth_num, depth_start, depth_interval, is_maste
             depth_costs.append(ave_feature2)
         cost_volume = tf.stack(depth_costs, axis=1)
 
+    print("=== cost_volume shape check ===")
+    print(cost_volume)  # 打印 Tensor 信息
+    print("==============================")
+
     # filtered cost volume, size of (B, D, H, W, 1)
     if is_master_gpu:
         filtered_cost_volume_tower = RegNetUS0({'data': cost_volume}, is_training=True, reuse=False)
@@ -428,7 +432,7 @@ def inference_winner_take_all(images, cams, depth_num, depth_start, depth_end,
             depth = depth_start + d_idx * depth_interval
         temp_depth_image = tf.reshape(depth, [FLAGS.batch_size, 1, 1, 1])
         temp_depth_image = tf.tile(
-            temp_depth_image, [1, feature_shape[1], feature_shape[2], 1])
+            temp_depth_image, tf.cast([1, feature_shape[1], feature_shape[2], 1], tf.int32))
 
         # update the best
         update_flag_image = tf.cast(tf.less(max_prob_image, prob), dtype='float32')

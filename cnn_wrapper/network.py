@@ -124,7 +124,7 @@ class Network(object):
         assert args
         self.terminals = []
         for fed_layer in args:
-            if isinstance(fed_layer, basestring):
+            if isinstance(fed_layer, str):
                 try:
                     fed_layer = self.layers[fed_layer]
                 except KeyError:
@@ -231,7 +231,7 @@ class Network(object):
         H = shape[2]
         W = shape[3]
         if channel_wise:
-            G = max(1, C / group_channel)
+            G = max(1, C // group_channel)
         else:
             G = min(group, C)
 
@@ -361,7 +361,7 @@ class Network(object):
         H = shape[2]
         W = shape[3]
         if channel_wise:
-            G = max(1, C / group_channel)
+            G = max(1, C // group_channel)
         else:
             G = min(group, C)
 
@@ -439,7 +439,32 @@ class Network(object):
 
     @layer
     def add(self, input_tensors, name):
-        return tf.add_n(input_tensors, name=name)
+        # 自动 pad 所有输入 Tensor，使维度一致
+        # 维度顺序: [batch, channels, depth, height, width]
+        # 我们对 depth(2), height(3), width(4) 三个方向做补齐
+        import tensorflow as tf
+
+        # 计算每个维度的最大值
+        d_max = max(int(t.shape[2]) for t in input_tensors)
+        h_max = max(int(t.shape[3]) for t in input_tensors)
+        w_max = max(int(t.shape[4]) for t in input_tensors)
+
+        padded_tensors = []
+        for t in input_tensors:
+            d, h, w = int(t.shape[2]), int(t.shape[3]), int(t.shape[4])
+            pad_d = d_max - d
+            pad_h = h_max - h
+            pad_w = w_max - w
+            # 只在需要时补 0
+            if pad_d > 0 or pad_h > 0 or pad_w > 0:
+                t = tf.pad(
+                    t,
+                    [[0, 0], [0, 0], [0, pad_d], [0, pad_h], [0, pad_w]],
+                    mode="CONSTANT"
+                )
+            padded_tensors.append(t)
+
+        return tf.add_n(padded_tensors, name=name)
 
     @layer
     def fc(self, input_tensor, num_out, name, biased=True, relu=True, flatten=True, reuse=False):

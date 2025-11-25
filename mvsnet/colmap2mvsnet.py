@@ -6,15 +6,15 @@ Preprocess script.
 
 from __future__ import print_function
 
+import argparse
 import collections
-import struct
-import numpy as np
 import multiprocessing as mp
 import os
-import argparse
 import shutil
-import cv2
+import struct
 
+import cv2
+import numpy as np
 
 #============================ read_model.py ============================#
 CameraModel = collections.namedtuple(
@@ -59,6 +59,10 @@ def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
     data = fid.read(num_bytes)
     return struct.unpack(endian_character + format_char_sequence, data)
 
+IMAGES = None
+EXTRINSIC = None
+POINTS3D = None
+ARGS = None
 
 def read_cameras_text(path):
     """
@@ -237,6 +241,33 @@ def read_points3d_binary(path_to_model_file):
                 point2D_idxs=point2D_idxs)
     return points3D
 
+def init_worker(images, extrinsic, points3d, args):
+    global IMAGES, EXTRINSIC, POINTS3D, ARGS
+    IMAGES = images
+    EXTRINSIC = extrinsic
+    POINTS3D = points3d
+    ARGS = args
+
+
+def calc_score(inputs):
+    i, j = inputs
+    id_i = IMAGES[i+1].point3D_ids
+    id_j = IMAGES[j+1].point3D_ids
+    id_intersect = [it for it in id_i if it in id_j]
+    cam_center_i = -np.matmul(EXTRINSIC[i+1][:3, :3].transpose(), EXTRINSIC[i+1][:3, 3:4])[:, 0]
+    cam_center_j = -np.matmul(EXTRINSIC[j+1][:3, :3].transpose(), EXTRINSIC[j+1][:3, 3:4])[:, 0]
+    score = 0
+    for pid in id_intersect:
+        if pid == -1:
+            continue
+        p = POINTS3D[pid].xyz
+        theta = (180 / np.pi) * np.arccos(np.dot(cam_center_i - p, cam_center_j - p) /
+                                          np.linalg.norm(cam_center_i - p) / np.linalg.norm(cam_center_j - p))
+        score += np.exp(-(theta - ARGS.theta0) * (theta - ARGS.theta0) /
+                        (2 * (ARGS.sigma1 if theta <= ARGS.theta0 else ARGS.sigma2) ** 2))
+    return i, j, score
+
+
 
 def read_model(path, ext):
     if ext == ".txt":
@@ -295,12 +326,27 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    renamed_dir = os.path.join(args.dense_folder, 'images_mvsnet')
+    os.makedirs(renamed_dir, exist_ok=True)
+
+    print("Current working directory:", os.getcwd())
+
     image_dir = os.path.join(args.dense_folder, 'images')
     model_dir = os.path.join(args.dense_folder, 'sparse')
     cam_dir = os.path.join(args.dense_folder, 'cams')
     renamed_dir = os.path.join(args.dense_folder, 'images')
 
+    print("Model dir:", model_dir)
+    print("Files:", os.listdir(model_dir))
+
     cameras, images, points3d = read_model(model_dir, '.txt')
+    print("Reading model...")
+    print("cameras:", cameras)
+    print("images:", images)
+    print("points3d:", points3d)
+    print("num images:", len(images))
+    print("num points3d:", len(points3d))
+
     num_images = len(list(images.items()))
 
     param_type = {
@@ -350,7 +396,7 @@ if __name__ == '__main__':
             if p3d_id == -1:
                 continue
             transformed = np.matmul(extrinsic[i+1], [points3d[p3d_id].xyz[0], points3d[p3d_id].xyz[1], points3d[p3d_id].xyz[2], 1])
-            zs.append(np.asscalar(transformed[2]))
+            zs.append(transformed[2].item())
         zs_sorted = sorted(zs)
         # relaxed depth range
         depth_min = zs_sorted[int(len(zs) * .01)]
@@ -370,6 +416,8 @@ if __name__ == '__main__':
             depth_num = (1 / depth_min - 1 / depth_max) / (1 / depth_min - 1 / (depth_min + np.linalg.norm(P2 - P1)))
         else:
             depth_num = args.max_d
+        depth_num = args.max_d  # 强制使用统一深度层数
+
         depth_interval = (depth_max - depth_min) / (depth_num - 1) / args.interval_scale
         depth_ranges[i+1] = (depth_min, depth_interval, depth_num, depth_max)
     print('depth_ranges[1]\n', depth_ranges[1], end='\n\n')
@@ -380,23 +428,16 @@ if __name__ == '__main__':
     for i in range(len(images)):
         for j in range(i + 1, len(images)):
             queue.append((i, j))
-    def calc_score(inputs):
-        i, j = inputs
-        id_i = images[i+1].point3D_ids
-        id_j = images[j+1].point3D_ids
-        id_intersect = [it for it in id_i if it in id_j]
-        cam_center_i = -np.matmul(extrinsic[i+1][:3, :3].transpose(), extrinsic[i+1][:3, 3:4])[:, 0]
-        cam_center_j = -np.matmul(extrinsic[j+1][:3, :3].transpose(), extrinsic[j+1][:3, 3:4])[:, 0]
-        score = 0
-        for pid in id_intersect:
-            if pid == -1:
-                continue
-            p = points3d[pid].xyz
-            theta = (180 / np.pi) * np.arccos(np.dot(cam_center_i - p, cam_center_j - p) / np.linalg.norm(cam_center_i - p) / np.linalg.norm(cam_center_j - p))
-            score += np.exp(-(theta - args.theta0) * (theta - args.theta0) / (2 * (args.sigma1 if theta <= args.theta0 else args.sigma2) ** 2))
-        return i, j, score
-    p = mp.Pool(processes=mp.cpu_count())
-    result = p.map(calc_score, queue)
+
+
+    print("Start multiprocessing for view selection...")
+    with mp.Pool(
+            processes=mp.cpu_count(),
+            initializer=init_worker,
+            initargs=(images, extrinsic, points3d, args)
+    ) as p:
+        result = p.map(calc_score, queue)
+
     for i, j, s in result:
         score[i, j] = s
         score[j, i] = s
@@ -435,5 +476,6 @@ if __name__ == '__main__':
         if args.convert_format:
             img = cv2.imread(os.path.join(image_dir, images[i+1].name))
             cv2.imwrite(os.path.join(renamed_dir, '%08d.jpg' % i), img)
+
         else:
             shutil.copyfile(os.path.join(image_dir, images[i+1].name), os.path.join(renamed_dir, '%08d.jpg' % i))

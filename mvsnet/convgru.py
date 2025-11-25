@@ -22,7 +22,7 @@ def group_norm(input_tensor,
     H = shape[2]
     W = shape[3]
     if channel_wise:
-        G = max(1, C / group_channel)
+        G = max(1, C // group_channel)
     else:
         G = min(group, C)
 

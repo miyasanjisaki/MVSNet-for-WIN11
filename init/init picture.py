@@ -2,9 +2,9 @@ import cv2
 import os
 
 
-video_path = r"C:\Users\SA_LINK\Desktop\c60536c727ccdb94658e9a0c515a69f2_raw.mp4"
-output_dir = r"C:\Users\SA_LINK\Desktop\c60536c727ccdb94658e9a0c515a69f2_frames"
-frames_per_second = 10
+video_path = r"E:\2025-11-23_202910_671.mp4"
+output_dir = r"C:\Users\SA_LINK\Desktop\111"
+frames_per_second = 5
 
 
 os.makedirs(output_dir, exist_ok=True)

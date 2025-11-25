@@ -74,7 +74,7 @@ def quat2mat(qw, qx, qy, qz):
 cameras = parse_cameras(COLMAP_CAMERAS_TXT)
 images = parse_images(COLMAP_IMAGES_TXT)
 
-frame_names = sorted([f for f in os.listdir(FRAMES_DIR) if f.lower().endswith(('.png','.jpg','.jpeg'))])
+frame_names = sorted([f for f in os.listdir(FRAMES_DIR) if f.lower().endswith(('.jpg','.jpeg'))])
 
 with open(os.path.join(OUTPUT_CAM_DIR, "0000_cam.txt"), 'w') as f:
     for fname in frame_names:
