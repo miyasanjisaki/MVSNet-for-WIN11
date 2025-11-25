@@ -1,6 +1,6 @@
 # MVSNet-for-WIN11
 It's for my final project.
-````markdown
+
 # COLMAP → MVSNet 预处理脚本
 
 本仓库包含一个用于将 **COLMAP 稀疏重建结果** 转换为 **MVSNet 所需数据格式** 的预处理脚本 `colmap2mvsnet.py`。  
@@ -18,7 +18,7 @@ It's for my final project.
 ## 1. 目录结构约定
 
 脚本假设数据组织如下（`--dense_folder` 指向的目录）：
-
+```
 
 dense_folder/
 ├── images/          # COLMAP 使用的原始图像
@@ -30,6 +30,7 @@ dense_folder/
     ├── cams/        # 每张图像对应的相机参数和深度范围
     ├── pair.txt     # 视角配对文件（MVSNet 使用）
     └── images/      # 以 %08d.jpg 命名的图像（可能覆盖/追加到原目录）
+```
 
 
 当前脚本默认从 `sparse/` 目录下读取 **文本格式** 的 COLMAP 模型 (`.txt`)。如果你现在是 `.bin` 文件，需要先用 COLMAP 导出为 `.txt`。
@@ -48,9 +49,8 @@ dense_folder/
 
 安装额外依赖示例：
 
-```bash
 pip install numpy opencv-python
-```
+
 
 ---
 
@@ -78,11 +78,12 @@ pip install numpy opencv-python
 
 根据 COLMAP 的相机模型，将参数映射为 3×3 内参矩阵：
 
-```text
+```
 [ fx   0  cx ]
 [  0  fy  cy ]
 [  0   0   1 ]
 ```
+
 
 对于只给了 `f` 的模型（如 `SIMPLE_PINHOLE`），脚本会自动令 `fx = fy = f`。
 
@@ -93,7 +94,7 @@ pip install numpy opencv-python
 * 将四元数 `qvec` 转换为旋转矩阵 `R`
 * 和平移向量 `t` 组合成 4×4 外参矩阵：
 
-```text
+```
 [ R  t ]
 [ 0  1 ]
 ```
@@ -109,9 +110,8 @@ pip install numpy opencv-python
 
 最终得到一组参数：
 
-```text
 depth_min  depth_interval  depth_num  depth_max
-```
+
 
 并写入 `cams/%08d_cam.txt` 文件。
 
@@ -136,17 +136,17 @@ depth_min  depth_interval  depth_num  depth_max
 
 ### 4.1 基本命令
 
-```bash
+
 python colmap2mvsnet.py \
     --dense_folder /path/to/your/dense_folder
-```
 
 示例：
 
-```bash
+```
 python colmap2mvsnet.py \
     --dense_folder ./data/dam_scene
 ```
+
 
 运行后，会在 `dense_folder` 下生成或更新：
 
@@ -163,7 +163,7 @@ python colmap2mvsnet.py \
 
 脚本支持以下命令行参数：
 
-```bash
+```
 python colmap2mvsnet.py \
     --dense_folder DENSE_DIR \
     [--max_d MAX_D] \
@@ -214,7 +214,7 @@ python colmap2mvsnet.py \
 
 每张图像对应一个文件，例如 `00000000_cam.txt`，格式为：
 
-```text
+```
 extrinsic
 r11 r12 r13 t1
 r21 r22 r23 t2
@@ -237,7 +237,7 @@ depth_min depth_interval depth_num depth_max
 
 `pair.txt` 用于描述每张图像的参考视角列表，典型格式如下：
 
-```text
+```
 N
 0
 10  1 s01  2 s02  ...
